@@ -147,6 +147,7 @@ class ExampleDispatcher(elevators: Seq[Elevator], register: Register, openTime: 
   }
 
   def isBusy =
-    !waiting.isEmpty
+    !waiting.isEmpty || elevators.exists(!_.isEmpty)
+
 
 }
