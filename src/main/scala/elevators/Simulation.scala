@@ -8,20 +8,20 @@ import io.Source
 object Simulation {
 
   def main(args: Array[String]) {
-    //todo read from args
     val elevatorCount = 4
     val src = "src/main/resources/elevator_traffic_1.txt"
-    new Simulation(src, elevatorCount).run()
+    val openTime = 10
+    new Simulation(src, elevatorCount, openTime).run()
   }
 
 }
 
-class Simulation(srcPath: String, elevatorCount: Int) extends Runnable {
+class Simulation(srcPath: String, elevatorCount: Int, openTime: Int) extends Runnable {
 
   private[this] val clock = new Clock
   private[this] val elevators = (1 to elevatorCount).map(i => new Elevator(0))
   private[this] val register = new Register(clock)
-  private[this] val dispatcher = new ExampleDispatcher(elevators, register)
+  private[this] val dispatcher = new ExampleDispatcher(elevators, register, openTime)
 
   def run() {
     val lines = Source.fromFile("src/main/resources/elevator_traffic_1.txt").getLines()
@@ -41,6 +41,8 @@ class Simulation(srcPath: String, elevatorCount: Int) extends Runnable {
       }
       clock.tick()
     }
+    //would also  be reasonable to display the most popular start and destination floors
+    // and according flow popularity histograms
     println("Simulation end time = " + (clock.time - 1))
     println("Processed queries = " + register.size)
     println("Average wait time = " + register.averageWaitTime)

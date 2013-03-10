@@ -5,11 +5,12 @@ import collection.mutable
 /**
  * @author Slava Pak
  */
-class ExampleDispatcher(elevators: Seq[Elevator], register: Register) extends Dispatcher(elevators) {
+class ExampleDispatcher(elevators: Seq[Elevator], register: Register, openTime: Int)
+  extends Dispatcher(elevators, openTime) {
 
-  val waiting = mutable.ListBuffer[Query]()
-  val openElevators = mutable.Map[Elevator, Int]()
-  val booked = mutable.Map[Elevator, Query]()
+  private[this] val waiting = mutable.ListBuffer[Query]()
+  private[this] val openElevators = mutable.Map[Elevator, Int]()
+  private[this] val bookedFloor = mutable.Map[Elevator, Int]()
 
   def onTick() {
     elevators.foreach { e =>
@@ -32,7 +33,7 @@ class ExampleDispatcher(elevators: Seq[Elevator], register: Register) extends Di
           onCloseTime(e)
         }
       } else {
-        assert(!booked.contains(e)) //otherwise it would become moving in onCloseTime
+        assert(!bookedFloor.contains(e)) //otherwise it would become moving in onCloseTime
         if (e.isEmpty) {
           planMovement(e)
         }
@@ -41,24 +42,23 @@ class ExampleDispatcher(elevators: Seq[Elevator], register: Register) extends Di
   }
 
   def planMovement(e: Elevator) {
-    assert(!booked.contains(e) && e.isEmpty && !e.moving && !e.open)
+    assert(!bookedFloor.contains(e) && e.isEmpty && !e.moving && !e.open)
     //assume there are no queries waiting at e.floor
     if (!waiting.isEmpty) {
       val (up, down) = waiting.partition(_.startFloor > e.floor)
-      val nextBooked = //the farthest query in chosen direction
+      val nextBookedFloor = //the farthest query in chosen direction
         if (up.size > down.size) {
-          up.reduce((max, q) => if (max.startFloor - e.floor < q.startFloor - e.floor) q else max)
+          up.map(_.startFloor).max
         } else {
-          down.reduce((min, q) => if (e.floor - min.startFloor < e.floor - q.startFloor) q else min)
+          down.map(_.startFloor).min
         }
-      waiting -= nextBooked
-      booked.put(e, nextBooked)
+      bookedFloor.put(e, nextBookedFloor)
       e.moving = true
     }
   }
 
   def destFloor(e: Elevator) = {
-    assert(booked.contains(e) || !e.passengers.isEmpty)
+    assert(bookedFloor.contains(e) || !e.passengers.isEmpty)
     if (!e.passengers.isEmpty) {
       //assume all dest floors are either >= or <= than floor
       if (e.passengers.head.destFloor < e.floor)
@@ -68,24 +68,23 @@ class ExampleDispatcher(elevators: Seq[Elevator], register: Register) extends Di
       else
         e.floor
     } else
-      booked(e).startFloor
+      bookedFloor(e)
   }
 
   def onCloseTime(e: Elevator) {
     openElevators.remove(e)
     loadWaiting(e)
     e.open = false
-    if (!e.isEmpty || booked.contains(e)) {
+    if (!e.isEmpty || bookedFloor.contains(e)) {
       e.moving = true
     }
   }
 
   def onReachFloor(elevator: Elevator, floor: Int) {
-    assert(booked.contains(elevator) || !elevator.passengers.isEmpty)
+    assert(bookedFloor.contains(elevator) || !elevator.passengers.isEmpty)
     if (destFloor(elevator) == floor) {
-      if (booked.contains(elevator) && booked(elevator).startFloor == floor) {
-        waiting += booked(elevator)
-        booked.remove(elevator)
+      if (bookedFloor.contains(elevator) && bookedFloor(elevator) == floor) {
+        bookedFloor.remove(elevator)
       }
       open(elevator)
     } else {
@@ -120,9 +119,9 @@ class ExampleDispatcher(elevators: Seq[Elevator], register: Register) extends Di
       val newPassengers =
         if (!e.passengers.isEmpty) {
           onTheFloor.filter(_.direction == e.passengers.head.direction)
-        } else if (booked.contains(e)) {
-          assert(booked(e).startFloor != e.floor) //otherwise it would have been already unbooked
-          if (booked(e).startFloor > e.floor) {
+        } else if (bookedFloor.contains(e)) {
+          assert(bookedFloor(e) != e.floor) //otherwise it would have been already unbooked
+          if (bookedFloor(e) > e.floor) {
             onTheFloor.filter(_.direction == Up)
           } else {
             onTheFloor.filter(_.direction == Down)
@@ -148,7 +147,6 @@ class ExampleDispatcher(elevators: Seq[Elevator], register: Register) extends Di
   }
 
   def isBusy =
-    !waiting.isEmpty  || !booked.isEmpty
+    !waiting.isEmpty
 
-  def openTime = 10 //todo take from properties
 }
