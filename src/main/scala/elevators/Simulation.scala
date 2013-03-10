@@ -8,10 +8,16 @@ import io.Source
 object Simulation {
 
   def main(args: Array[String]) {
-    val elevatorCount = 4
-    val src = "src/main/resources/elevator_traffic_1.txt"
-    val openTime = 10
-    new Simulation(src, elevatorCount, openTime).run()
+    val simulation =
+      if (args.isEmpty) {
+        val elevatorCount = 4
+        val src = "src/main/resources/elevator_traffic_1.txt"
+        val openTime = 10
+        new Simulation(src, elevatorCount, openTime)
+      } else {
+        new Simulation(args(0), args(1).toInt, args(2).toInt)
+      }
+    simulation.run()
   }
 
 }
