@@ -24,7 +24,7 @@ class Simulation(srcPath: String, elevatorCount: Int, openTime: Int) extends Run
   private[this] val dispatcher = new ExampleDispatcher(elevators, register, openTime)
 
   def run() {
-    val lines = Source.fromFile("src/main/resources/elevator_traffic_1.txt").getLines()
+    val lines = Source.fromFile(srcPath).getLines()
     var nextQuery: Query = null
     while (lines.hasNext || dispatcher.isBusy) {
       dispatcher.onTick()
