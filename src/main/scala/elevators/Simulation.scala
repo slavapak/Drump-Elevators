@@ -13,7 +13,7 @@ object Simulation {
     val simulation =
       if (args.isEmpty) {
         val elevatorCount = 4
-        val src = "src/main/resources/elevator_traffic_1.txt"
+        val src = "src/main/resources/elevator_traffic_2.txt"
         val openTime = 10
         new Simulation(src, elevatorCount, openTime)
       } else {
@@ -49,15 +49,17 @@ class Simulation(srcPath: String, elevatorCount: Int, openTime: Int) extends Run
       }
       clock.tick()
     }
-    printFlowPopularityChart("Start floor popularity:", register.startFloorPopularity)
-    printFlowPopularityChart("Destination floor popularity:", register.destinationFloorPopularity)
+    printPopularityChart("Start floor popularity:", register.startFloorPopularity)
+    printPopularityChart("Destination floor popularity:", register.destinationFloorPopularity)
+    printPopularityChart("Distances popularity:", register.distancesPopularity)
+    printFloorToFloorTripsPopularity(10)
     println("Simulation end time = " + (clock.time - 1))
     println("Processed queries = " + register.size)
     println("Average wait time = " + register.averageWaitTime)
     println("Standard deviation = " + register.standardDeviation)
   }
 
-  def printFlowPopularityChart(title: String, map: util.TreeMap[Int, Int]) {
+  def printPopularityChart(title: String, map: util.TreeMap[Int, Int]) {
     println(title)
     printHistogram(map, 80)
     println()
@@ -82,6 +84,15 @@ class Simulation(srcPath: String, elevatorCount: Int, openTime: Int) extends Run
 
   private def histogramString(floor: Int, value: Int, maxValue: Int, width: Int, symbol: Char) = {
     histogramLinePrefix(floor, value) + histogramLine(value, maxValue, width, symbol)
+  }
+
+  def printFloorToFloorTripsPopularity(limit: Int) {
+    val popularity = register.floorToFloorTripsPopularity
+    println(limit + " most popular floor to floor trips:")
+    val top = popularity.toList.sortBy(_._2).
+      drop(popularity.size - limit).reverse
+    top.foreach(e => println(e._1._1 + " to " + e._1._2 + "\t:\t" + e._2))
+    println()
   }
 
   private def nextQueriesToCurrentTime(lines: Iterator[String]) =  {

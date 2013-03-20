@@ -43,11 +43,27 @@ class Register(clock: Clock) {
     }
   }
 
+  def floorToFloorTripsPopularity = {
+    val map = mutable.Map[(Int, Int), Int]()
+    history.foreach(
+      e => {
+        val key = (e.startFloor, e.destFloor)
+        if (map.contains(key))
+          map.put(key, map(key) + 1)
+        else
+          map.put(key, 1)
+      })
+    map
+  }
+
   def startFloorPopularity =
     floorPopularity(_.startFloor)
 
   def destinationFloorPopularity =
     floorPopularity(_.destFloor)
+
+  def distancesPopularity =
+    floorPopularity(e => math.abs(e.destFloor - e.startFloor))
 
   private def floorPopularity(getFloor: HistoryEntry => Int) = {
     val floorMap = new util.TreeMap[Int, Int]()
@@ -60,8 +76,7 @@ class Register(clock: Clock) {
           floorMap.put(key, 1)
         }
       })
-    val (min, max) = (floorMap.firstKey(), floorMap.lastKey())
-    for (i <- min to max)
+    for (i <- floorMap.firstKey() to floorMap.lastKey())
       if (!floorMap.containsKey(i))
         floorMap.put(i, 0)
     floorMap
