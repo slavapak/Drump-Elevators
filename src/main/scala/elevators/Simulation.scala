@@ -3,6 +3,7 @@ package elevators
 import io.Source
 import java.util
 import collection.JavaConversions._
+import strategies.ParkingDispatcher
 
 /**
  * @author Slava Pak
@@ -13,7 +14,7 @@ object Simulation {
     val simulation =
       if (args.isEmpty) {
         val elevatorCount = 4
-        val src = "src/main/resources/elevator_traffic_2.txt"
+        val src = "src/main/resources/elevator_traffic_1.txt"
         val openTime = 10
         new Simulation(src, elevatorCount, openTime)
       } else {
@@ -27,9 +28,9 @@ object Simulation {
 class Simulation(srcPath: String, elevatorCount: Int, openTime: Int) extends Runnable {
 
   private[this] val clock = new Clock
-  private[this] val elevators = (1 to elevatorCount).map(i => new Elevator(1))
+  private[this] val elevators = (1 to elevatorCount).map(i => new Elevator(1)).toBuffer
   private[this] val register = new Register(clock)
-  private[this] val dispatcher = new ExampleDispatcher(elevators, register, openTime)
+  private[this] val dispatcher = new ParkingDispatcher(elevators, register, openTime)
 
   def run() {
     val lines = Source.fromFile(srcPath).getLines()

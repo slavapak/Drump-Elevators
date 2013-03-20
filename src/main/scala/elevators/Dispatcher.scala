@@ -1,9 +1,11 @@
 package elevators
 
+import collection.mutable
+
 /**
  * @author Slava Pak
  */
-abstract class Dispatcher(elevators: Seq[Elevator], register: Register, openTime: Int) {
+abstract class Dispatcher(elevators: mutable.Seq[Elevator], register: Register, openTime: Int) {
 
   def onTick()
 

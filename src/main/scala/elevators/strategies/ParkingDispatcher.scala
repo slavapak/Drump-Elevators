@@ -1,29 +1,28 @@
-package elevators
+package elevators.strategies
 
 import collection.mutable
+import elevators._
 
 /**
  * @author Slava Pak
  */
-class ExampleDispatcher(elevatorz: Seq[Elevator], register: Register, openTime: Int)
-  extends Dispatcher(elevatorz, register, openTime) {
+class ParkingDispatcher(elevators: mutable.Buffer[Elevator], register: Register, openTime: Int)
+  extends Dispatcher(elevators, register, openTime) {
 
-  private[this] val elevators = {
-    val elevators = mutable.ListBuffer[ParkingElevator]()
-    if (elevatorz.length > 0)
-      elevators += new ParkingElevator(elevatorz(0).floor, 1)
-    if (elevatorz.length > 1)
-      elevators += new ParkingElevator(elevatorz(1).floor, 10)
-    if (elevatorz.length > 2)
-      elevators += new ParkingElevator(elevatorz(1).floor, 0)
-    for (i <- 2 to elevatorz.length - 1)
-      elevators += new ParkingElevator(elevatorz(i).floor, 1)
-    elevators.toList
-  }
+    if (elevators.length > 0)
+      elevators(0) = new ParkingElevator(elevators(0).floor, 1)
+    if (elevators.length > 1)
+      elevators(1) = new ParkingElevator(elevators(1).floor, 10)
+    if (elevators.length > 2)
+      elevators(2) = new ParkingElevator(elevators(2).floor, 0)
+    for (i <- 2 to elevators.length - 1)
+      elevators(i) = new ParkingElevator(elevators(i).floor, 1)
+
   private[this] val waiting = mutable.ListBuffer[Query]()
 
   def onTick() {
-    elevators.foreach { e =>
+    elevators.foreach { elevator =>
+      val e = elevator.asInstanceOf[ParkingElevator]
       if (e.moving) {
         val destinationFloor = destFloor(e)
         assert(destinationFloor != e.floor) //otherwise it would have been processed in previous tick
@@ -60,19 +59,22 @@ class ExampleDispatcher(elevatorz: Seq[Elevator], register: Register, openTime: 
       }
       open(elevator)
     } else {
-      val onTheFloor = waiting.filter(_.startFloor == floor)
-      if (!onTheFloor.isEmpty) {
-        val newPassengers =
-          if (destFloor(elevator) > floor)
-            onTheFloor.filter(_.direction == Up)
-          else
-            onTheFloor.filter(_.direction == Down)
-        if (!newPassengers.isEmpty) {
-          open(elevator)
-        }
+      if (shouldOpen(elevator)) {
+        open(elevator)
       }
     }
   }
+
+  def shouldOpen(e: ParkingElevator) = {
+    //          if (penaltyForOpen(elevator) < estimateToWaitIfNotOpen(passengers))
+    !potentialPassengers(e).isEmpty
+  }
+
+  private def penaltyForOpen(e: Elevator) =
+    if (e.passengers.exists(_.destFloor == e.floor))
+      0
+    else
+      e.passengers.size * openTime
 
   def planMovement(e: ParkingElevator) {
     assert(e.bookedFloor.isEmpty && e.isEmpty && !e.moving && !e.open)
@@ -111,28 +113,34 @@ class ExampleDispatcher(elevatorz: Seq[Elevator], register: Register, openTime: 
 
   def loadWaiting(e: ParkingElevator) {
     assert(e.open)
+    val passengers = potentialPassengers(e)
+    if (!passengers.isEmpty) {
+      e.passengers ++= passengers
+      waiting --= passengers
+    }
+  }
+
+  def potentialPassengers(e: ParkingElevator) = {
     val onTheFloor = waiting.filter(_.startFloor == e.floor)
     if (!onTheFloor.isEmpty) {
-      val newPassengers =
-        if (!e.passengers.isEmpty) {
-          onTheFloor.filter(_.direction == e.passengers.head.direction)
-        } else if (e.bookedFloor.isDefined) {
-          assert(e.bookedFloor.get != e.floor) //otherwise it would have been already unbooked
-          if (e.bookedFloor.get > e.floor) {
-            onTheFloor.filter(_.direction == Up)
-          } else {
-            onTheFloor.filter(_.direction == Down)
-          }
+      if (!e.passengers.isEmpty) {
+        onTheFloor.filter(_.direction == e.passengers.head.direction)
+      } else if (e.bookedFloor.isDefined) {
+        assert(e.bookedFloor.get != e.floor) //otherwise it would have been already unbooked
+        if (e.bookedFloor.get > e.floor) {
+          onTheFloor.filter(_.direction == Up)
         } else {
-          val (up, down) = onTheFloor.partition(_.direction == Up)
-          if (up.size > down.size)
-            up
-          else
-            down
+          onTheFloor.filter(_.direction == Down)
         }
-      e.passengers ++= newPassengers
-      waiting --= newPassengers
-    }
+      } else {
+        val (up, down) = onTheFloor.partition(_.direction == Up)
+        if (up.size > down.size)
+          up
+        else
+          down
+      }
+    } else
+      onTheFloor
   }
 
   def onQuery(query: Query) {
