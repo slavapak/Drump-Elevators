@@ -21,6 +21,7 @@ class Elevator(var floor: Int) {
   val passengers = mutable.ListBuffer[Query]()
   var moving = false
   var open = false
+  var openTime = 0
 
   def isEmpty =
     passengers.isEmpty
