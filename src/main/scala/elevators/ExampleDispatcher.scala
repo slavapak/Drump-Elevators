@@ -6,11 +6,20 @@ import collection.mutable
  * @author Slava Pak
  */
 class ExampleDispatcher(elevators: Seq[Elevator], register: Register, openTime: Int)
-  extends Dispatcher(elevators, openTime) {
+  extends Dispatcher(elevators, register, openTime) {
 
   private[this] val waiting = mutable.ListBuffer[Query]()
   private[this] val openElevators = mutable.Map[Elevator, Int]()
   private[this] val bookedFloor = mutable.Map[Elevator, Int]()
+  private[this] val parkingFloor = {
+    val map = mutable.Map[Elevator, Int]()
+    elevators.foreach(map.put(_, 1))
+    if (elevators.length > 1)
+      map.put(elevators.tail.head, 10)
+    if (elevators.length > 2)
+      map.put(elevators.tail.tail.head, 0)
+    map
+  }
 
   def onTick() {
     elevators.foreach { e =>
@@ -26,57 +35,21 @@ class ExampleDispatcher(elevators: Seq[Elevator], register: Register, openTime: 
       } else if (e.open) {
         assert(openElevators.contains(e))
         val openTime = openElevators(e)
+        loadWaiting(e)
         if (openTime > 0) {
           openElevators.put(e, openTime - 1)
-          loadWaiting(e)
         } else {
-          onCloseTime(e)
+          close(e)
+          if (!e.isEmpty || bookedFloor.contains(e)) {
+            e.moving = true
+          }
         }
       } else {
-        assert(!bookedFloor.contains(e)) //otherwise it would become moving in onCloseTime
+        assert(!bookedFloor.contains(e)) //otherwise it would become moving when closed
         if (e.isEmpty) {
           planMovement(e)
         }
       }
-    }
-  }
-
-  def planMovement(e: Elevator) {
-    assert(!bookedFloor.contains(e) && e.isEmpty && !e.moving && !e.open)
-    //assume there are no queries waiting at e.floor
-    if (!waiting.isEmpty) {
-      val (up, down) = waiting.partition(_.startFloor > e.floor)
-      val nextBookedFloor = //the farthest query in chosen direction
-        if (up.size > down.size) {
-          up.map(_.startFloor).max
-        } else {
-          down.map(_.startFloor).min
-        }
-      bookedFloor.put(e, nextBookedFloor)
-      e.moving = true
-    }
-  }
-
-  def destFloor(e: Elevator) = {
-    assert(bookedFloor.contains(e) || !e.passengers.isEmpty)
-    if (!e.passengers.isEmpty) {
-      //assume all dest floors are either >= or <= than floor
-      if (e.passengers.head.destFloor < e.floor)
-        e.passengers.map(_.destFloor).max
-      else if (e.passengers.head.destFloor > e.floor)
-        e.passengers.map(_.destFloor).min
-      else
-        e.floor
-    } else
-      bookedFloor(e)
-  }
-
-  def onCloseTime(e: Elevator) {
-    openElevators.remove(e)
-    loadWaiting(e)
-    e.open = false
-    if (!e.isEmpty || bookedFloor.contains(e)) {
-      e.moving = true
     }
   }
 
@@ -102,6 +75,31 @@ class ExampleDispatcher(elevators: Seq[Elevator], register: Register, openTime: 
     }
   }
 
+  def planMovement(e: Elevator) {
+    assert(!bookedFloor.contains(e) && e.isEmpty && !e.moving && !e.open)
+    //assume there are no queries waiting at e.floor otherwise they would be loaded during previous iterations
+    if (e.floor != parkingFloor(e)) {
+      bookedFloor.put(e, parkingFloor(e))
+      e.moving = true
+    } else {
+      open(e)
+    }
+  }
+
+  def destFloor(e: Elevator) = {
+    assert(bookedFloor.contains(e) || !e.passengers.isEmpty)
+    if (!e.passengers.isEmpty) {
+      //assume all dest floors are either >= or <= than floor
+      if (e.passengers.head.destFloor < e.floor)
+        e.passengers.map(_.destFloor).max
+      else if (e.passengers.head.destFloor > e.floor)
+        e.passengers.map(_.destFloor).min
+      else
+        e.floor
+    } else
+      bookedFloor(e)
+  }
+
   def open(e: Elevator) {
     e.moving = false
     e.open = true
@@ -110,6 +108,11 @@ class ExampleDispatcher(elevators: Seq[Elevator], register: Register, openTime: 
     e.passengers --= out
     out.foreach(onProcessed(_))
     loadWaiting(e)
+  }
+
+  def close(e: Elevator) {
+    e.open = false
+    openElevators.remove(e)
   }
 
   def loadWaiting(e: Elevator) {
@@ -140,10 +143,6 @@ class ExampleDispatcher(elevators: Seq[Elevator], register: Register, openTime: 
 
   def onQuery(query: Query) {
     waiting += query
-  }
-
-  def onProcessed(query: Query) {
-    register.write(query)
   }
 
   def isBusy =

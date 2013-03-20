@@ -8,7 +8,6 @@ import java.util
  */
 class Register(clock: Clock) {
 
-
   private[this] val history = mutable.ListBuffer[HistoryEntry]()
 
   def write(q: Query) {
@@ -26,7 +25,6 @@ class Register(clock: Clock) {
       })
       (1.0 * sum) / history.size
     }
-
   }
 
   def standardDeviation = {

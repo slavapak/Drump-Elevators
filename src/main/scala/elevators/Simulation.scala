@@ -27,7 +27,7 @@ object Simulation {
 class Simulation(srcPath: String, elevatorCount: Int, openTime: Int) extends Runnable {
 
   private[this] val clock = new Clock
-  private[this] val elevators = (1 to elevatorCount).map(i => new Elevator(0))
+  private[this] val elevators = (1 to elevatorCount).map(i => new Elevator(1))
   private[this] val register = new Register(clock)
   private[this] val dispatcher = new ExampleDispatcher(elevators, register, openTime)
 
