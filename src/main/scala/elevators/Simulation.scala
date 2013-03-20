@@ -1,6 +1,8 @@
 package elevators
 
 import io.Source
+import java.util
+import collection.JavaConversions._
 
 /**
  * @author Slava Pak
@@ -47,12 +49,39 @@ class Simulation(srcPath: String, elevatorCount: Int, openTime: Int) extends Run
       }
       clock.tick()
     }
-    //would also  be reasonable to display the most popular start and destination floors
-    // and according flow popularity histograms
+    printFlowPopularityChart("Start floor popularity:", register.startFloorPopularity)
+    printFlowPopularityChart("Destination floor popularity:", register.destinationFloorPopularity)
     println("Simulation end time = " + (clock.time - 1))
     println("Processed queries = " + register.size)
     println("Average wait time = " + register.averageWaitTime)
     println("Standard deviation = " + register.standardDeviation)
+  }
+
+  def printFlowPopularityChart(title: String, map: util.TreeMap[Int, Int]) {
+    println(title)
+    printHistogram(map, 80)
+    println()
+  }
+
+  private def printHistogram(map: util.TreeMap[Int, Int], lineWidth: Int) {
+    val maxValue = map.values().max
+    val maxPrefixLength = map.map(e => histogramLinePrefix(e._1, e._2).length).max
+    val strings = map.map(e => histogramString(e._1, e._2, maxValue, lineWidth - maxPrefixLength, '*'))
+    strings.foreach(println _)
+  }
+
+  private def histogramLinePrefix(floor: Int, value: Int) =
+    floor + "\t: " + value + "\t:"
+
+  private def histogramLine(value: Int, maxValue: Int, width: Int, symbol: Char) = {
+    val sb = new StringBuilder()
+    for (i <- 1 to (value * 1.0 / maxValue * width).toInt)
+      sb += symbol
+    sb.toString()
+  }
+
+  private def histogramString(floor: Int, value: Int, maxValue: Int, width: Int, symbol: Char) = {
+    histogramLinePrefix(floor, value) + histogramLine(value, maxValue, width, symbol)
   }
 
   private def nextQueriesToCurrentTime(lines: Iterator[String]) =  {

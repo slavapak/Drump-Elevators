@@ -1,13 +1,15 @@
 package elevators
 
-import collection.mutable.ListBuffer
+import collection.mutable
+import java.util
 
 /**
  * @author Slava Pak
  */
 class Register(clock: Clock) {
 
-  private[this] val history = ListBuffer[HistoryEntry]()
+
+  private[this] val history = mutable.ListBuffer[HistoryEntry]()
 
   def write(q: Query) {
     history += HistoryEntry(q.time, q.startFloor, clock.time, q.destFloor)
@@ -41,6 +43,30 @@ class Register(clock: Clock) {
       val d = (1.0 * sumSquared) / history.size - expectedTime * expectedTime
       scala.math.sqrt(d)
     }
+  }
+
+  def startFloorPopularity =
+    floorPopularity(_.startFloor)
+
+  def destinationFloorPopularity =
+    floorPopularity(_.destFloor)
+
+  private def floorPopularity(getFloor: HistoryEntry => Int) = {
+    val floorMap = new util.TreeMap[Int, Int]()
+    history.foreach(
+      e => {
+        val key = getFloor(e)
+        if (floorMap.containsKey(key)) {
+          floorMap.put(key, floorMap.get(key) + 1)
+        } else {
+          floorMap.put(key, 1)
+        }
+      })
+    val (min, max) = (floorMap.firstKey(), floorMap.lastKey())
+    for (i <- min to max)
+      if (!floorMap.containsKey(i))
+        floorMap.put(i, 0)
+    floorMap
   }
 
   def size =
