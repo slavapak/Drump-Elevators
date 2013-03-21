@@ -59,22 +59,11 @@ class ParkingDispatcher(elevators: mutable.Buffer[Elevator], register: Register,
       }
       open(elevator)
     } else {
-      if (shouldOpen(elevator)) {
+      if (!potentialPassengers(elevator).isEmpty) {
         open(elevator)
       }
     }
   }
-
-  def shouldOpen(e: ParkingElevator) = {
-    //          if (penaltyForOpen(elevator) < estimateToWaitIfNotOpen(passengers))
-    !potentialPassengers(e).isEmpty
-  }
-
-  private def penaltyForOpen(e: Elevator) =
-    if (e.passengers.exists(_.destFloor == e.floor))
-      0
-    else
-      e.passengers.size * openTime
 
   def planMovement(e: ParkingElevator) {
     assert(e.bookedFloor.isEmpty && e.isEmpty && !e.moving && !e.open)
